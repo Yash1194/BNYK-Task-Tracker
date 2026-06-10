@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 export default function Home() {
+  const router = useRouter();
    const [taskName, setTaskName] = useState("");
   const [email, setEmail] = useState("");
   const [dueDate, setDueDate] = useState("");
@@ -33,6 +35,7 @@ export default function Home() {
     const data = await response.json();
 
     alert(data.message);
+    router.push("/dashboard");
 
     setTaskName("");
     setEmail("");
@@ -43,6 +46,8 @@ export default function Home() {
   } catch (error) {
     alert("Something went wrong");
     setLoading(false);
+
+    
   }
 };
 
