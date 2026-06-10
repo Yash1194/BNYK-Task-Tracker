@@ -34,7 +34,7 @@ export default function Home() {
 
     const data = await response.json();
 
-    alert(data.message);
+    
     router.push("/dashboard");
 
     setTaskName("");
