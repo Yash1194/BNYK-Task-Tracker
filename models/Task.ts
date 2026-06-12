@@ -1,19 +1,24 @@
-import mongoose from "mongoose";
+import mongoose, { Schema } from "mongoose";
 
-const TaskSchema = new mongoose.Schema(
+const TaskSchema = new Schema(
   {
-    taskName: String,
-    email: String,
-    dueDate: String,
-    description: String,
-    notionLink: String,
+    taskName: { type: String, required: true, trim: true },
+    email: { type: String, required: true, trim: true },
+    dueDate: { type: String, default: "" },
+    description: { type: String, default: "" },
+    notionLink: { type: String, default: "" },
     status: {
-  type: String,
-  default: "Pending",
-},
+      type: String,
+      enum: ["Pending", "Completed"],
+      default: "Pending",
+    },
+    priority: {
+      type: String,
+      enum: ["Low", "Medium", "High"],
+      default: "Medium",
+    },
   },
   { timestamps: true }
 );
 
-export default mongoose.models.Task ||
-  mongoose.model("Task", TaskSchema);
+export default mongoose.models.Task ?? mongoose.model("Task", TaskSchema);

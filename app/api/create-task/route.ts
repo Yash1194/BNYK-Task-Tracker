@@ -4,63 +4,86 @@ import { connectDB } from "../../../lib/mongodb";
 import Task from "../../../models/Task";
 
 export async function POST(req: Request) {
-  await connectDB();
+  try {
+    await connectDB();
 
-  const body = await req.json();
+    const body = await req.json();
+    const { taskName, email, dueDate, description, notionLink, priority } =
+      body;
 
-  const {
-    taskName,
-    email,
-    dueDate,
-    description,
-    notionLink,
-  } = body;
-
-  const task = await Task.create({
-    taskName,
-    email,
-    dueDate,
-    description,
-    notionLink,
-  });
-
-  // Send email notification asynchronously and catch any errors to prevent blocking the response
-  if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
-    try {
-      const transporter = nodemailer.createTransport({
-        service: "gmail",
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS,
-        },
-      });
-
-      await transporter.sendMail({
-        from: process.env.EMAIL_USER,
-        to: email,
-        subject: `New Task Assigned: ${taskName}`,
-        html: `
-          <h2>New Task Assigned</h2>
-          <p><strong>Task:</strong> ${taskName}</p>
-          <p><strong>Due Date:</strong> ${dueDate}</p>
-          <p><strong>Description:</strong> ${description}</p>
-          <p>
-            <a href="${notionLink}">
-              Open Notion Task
-            </a>
-          </p>
-        `,
-      });
-    } catch (emailError) {
-      console.error("Nodemailer failed to send email, but task was created successfully:", emailError);
+    // Basic validation
+    if (!taskName?.trim()) {
+      return NextResponse.json(
+        { error: "Task name is required" },
+        { status: 400 }
+      );
     }
-  } else {
-    console.warn("EMAIL_USER or EMAIL_PASS not configured in env variables. Skipping email notification.");
-  }
+    if (!email?.trim()) {
+      return NextResponse.json(
+        { error: "Assignee email is required" },
+        { status: 400 }
+      );
+    }
 
-  return NextResponse.json({
-    success: true,
-    message: "Task Created Successfully",
-    task,
-  });
+    const task = await Task.create({
+      taskName: taskName.trim(),
+      email: email.trim(),
+      dueDate: dueDate || "",
+      description: description || "",
+      notionLink: notionLink || "",
+      priority: priority || "Medium",
+    });
+
+    // Send email notification asynchronously (non-blocking)
+    if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+      Promise.resolve().then(async () => {
+        try {
+          const transporter = nodemailer.createTransport({
+            service: "gmail",
+            auth: {
+              user: process.env.EMAIL_USER,
+              pass: process.env.EMAIL_PASS,
+            },
+          });
+
+          await transporter.sendMail({
+            from: process.env.EMAIL_USER,
+            to: email,
+            subject: `New Task Assigned: ${taskName}`,
+            html: `
+              <h2>New Task Assigned</h2>
+              <p><strong>Task:</strong> ${taskName}</p>
+              <p><strong>Priority:</strong> ${priority || "Medium"}</p>
+              <p><strong>Due Date:</strong> ${dueDate || "Not set"}</p>
+              <p><strong>Description:</strong> ${description || "No description"}</p>
+              ${notionLink ? `<p><a href="${notionLink}">Open Link</a></p>` : ""}
+            `,
+          });
+        } catch (emailError) {
+          console.error(
+            "[POST /api/create-task] Email send failed (non-fatal):",
+            emailError
+          );
+        }
+      });
+    } else {
+      console.warn(
+        "[POST /api/create-task] EMAIL_USER or EMAIL_PASS not configured. Skipping email."
+      );
+    }
+
+    return NextResponse.json(
+      { success: true, message: "Task Created Successfully", task },
+      { status: 201 }
+    );
+  } catch (error) {
+    console.error("[POST /api/create-task]", error);
+    return NextResponse.json(
+      {
+        error:
+          "Failed to create task. Please verify MONGODB_URI in .env.local.",
+      },
+      { status: 500 }
+    );
+  }
 }
